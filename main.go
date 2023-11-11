@@ -1,8 +1,6 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -11,8 +9,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/ztrue/tracerr"
 )
-
-var DB *sql.DB
 
 func main() {
 	// Open a connection to the database.
@@ -23,41 +19,32 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
-	DB = db
 
-	_, err = db.Exec("SELECT 1 FROM users LIMIT 1")
+	// Processor setup to read and store CSV data.
+	fileProcessor := utils.NewProcessor(db)
+	err = fileProcessor.ReadExcelFiles("./dummyData", db)
 	if err != nil {
-		tracerr.Wrap(err)
-		tracerr.PrintSourceColor(err)
-		// Create the users table if it doesn't exist.
-		_, err = db.Exec("CREATE TABLE users (id serial PRIMARY KEY, username text NOT NULL, password text NOT NULL)")
-		if err != nil {
-			tracerr.Wrap(err)
-			tracerr.PrintSourceColor(err)
-			panic(err)
-		}
+		log.Fatalf("could not process files: %v", err)
 	}
 
-	// Check the connection
-	err = db.Ping()
-	if err != nil {
-		tracerr.Wrap(err)
-		tracerr.PrintSourceColor(err)
-		log.Fatal(err)
+	// Create the query service.
+	queryService := NewService(db)
+
+	// Set up the HTTP server.
+	server := NewServer(queryService)
+	http.HandleFunc("/search", server.SearchHandler)
+	http.HandleFunc("/userInfo", server.GetUserInfo)
+	// Start the server.
+	log.Println("Starting server on :8080")
+
+	// Create your server instance
+	runServer := &http.Server{
+		Addr: ":8080",
+		// Use applyMiddleware to wrap your handlers with the desired middleware
+		Handler: utils.ApplyMiddleware(http.DefaultServeMux, utils.EnableCORS, utils.LoggingMiddleware),
 	}
 
-	utils.ReadExcelFiles(db)
-
-	// Wrap the protectedHandler with authMiddleware
-	protectedHandlerWithAuth := authMiddleware(http.HandlerFunc(protectedHandler))
-
-	// Register the wrapped handler to the protected endpoint
-	http.Handle("/protected", protectedHandlerWithAuth)
-
-	http.Handle("/user", http.HandlerFunc(createUserHandler))
-	http.HandleFunc("/", healthCheckHandler)
-
-	log.Fatal(http.ListenAndServe(":8080", nil))
-
-	fmt.Println("User created successfully!")
+	if err := runServer.ListenAndServe(); err != nil {
+		log.Fatalf("could not start server: %v", err)
+	}
 }
