@@ -80,6 +80,16 @@ func (s *Service) SearchWithPagination(keyword string, accounts []string, startT
 	return s.db.QueryTransactionsWithPagination(keyword, accounts, startTime, endTime, limit, offset, sortOrder)
 }
 
+// GetTrends retrieves trend data for a given category within a date range.
+func (s *Service) GetTrends(category string, startTime, endTime time.Time) ([]types.TrendData, error) {
+	return s.db.GetTrendData(category, startTime, endTime)
+}
+
+// GetAggregates retrieves aggregated data for a given category.
+func (s *Service) GetAggregates(category string, startTime time.Time, endTime time.Time) (types.AggregateData, error) {
+	return s.db.GetAggregateData(category, startTime, endTime)
+}
+
 // GetAccounts retrieves a list of available accounts from the transactions table.
 func (db *PostgresDB) GetUniqueBankAccounts() ([]string, error) {
 	const query = `SELECT DISTINCT account_id FROM transactions`
@@ -315,4 +325,95 @@ func paramPlaceholder(start, count int) string {
 
 func (db *PostgresDB) Close() error {
 	return db.DB.Close()
+}
+
+// ... other imports ...
+
+func (db *PostgresDB) GetTrendData(category string, startTime, endTime time.Time) ([]types.TrendData, error) {
+	// Construct the SQL query
+
+	query := `
+        SELECT DATE_TRUNC('week', date) AS period, COALESCE(SUM(credit), 0) AS total_credits,
+		COALESCE(SUM(debit), 0) AS total_debits
+        FROM transactions
+        WHERE description ILIKE $1
+          AND date >= $2
+          AND date <= $3
+        GROUP BY period
+        ORDER BY period ASC;
+    `
+	// Execute the query
+	rows, err := db.Query(query, "%"+category+"%", startTime, endTime)
+	if err != nil {
+		// Use log.Println here for debugging purposes; remove or adjust for production use
+		log.Println("Error fetching trend data: ", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var trends []types.TrendData
+	for rows.Next() {
+		var trend types.TrendData
+		var period time.Time
+		if err := rows.Scan(&period, &trend.TotalCredit, &trend.TotalDebit); err != nil {
+			// Use log.Println here for debugging purposes; remove or adjust for production use
+			log.Println("Error scanning trend row: ", err)
+			return nil, err
+		}
+		// Format the period to show the week's starting date in DD/MM/YYYY format
+		trend.Period = period.Format("02/01/2006") // Format: DD/MM/YYYY
+		trends = append(trends, trend)
+		// log.Println("appending trends ", trends)
+	}
+
+	// Check for any error that occurred during the iteration
+	if err = rows.Err(); err != nil {
+		// Use log.Println here for debugging purposes; remove or adjust for production use
+		log.Println("Error iterating trend rows: ", err)
+		return nil, err
+	}
+
+	if len(trends) == 0 {
+		log.Println("no trends found ")
+		// No trends were found, but this isn't an error condition
+		return []types.TrendData{}, nil
+	}
+	// log.Println("returning ", trends)
+
+	return trends, nil
+}
+
+func (db *PostgresDB) GetAggregateData(category string, startTime, endTime time.Time) (types.AggregateData, error) {
+	// fmt.Println(category, startTime, endTime)
+
+	query := `
+        SELECT COALESCE(SUM(credit), 0) AS total_credits, 
+               COALESCE(SUM(debit), 0) AS total_debits,
+			   COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) AS total
+        FROM transactions
+        WHERE description ILIKE $1
+          AND date >= $2
+          AND date <= $3;
+    `
+	var aggregate types.AggregateData
+	aggregate.Category = category
+	// log.Println("aggregate inserting category: ", aggregate)
+	err := db.QueryRow(query, "%"+category+"%", startTime, endTime).Scan(&aggregate.TotalCredit, &aggregate.TotalDebit, &aggregate.Total)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No rows were returned, but this isn't an error condition for aggregate queries
+			aggregate.Total = 0
+			log.Println("Error no row found ", err)
+
+			return aggregate, nil
+		}
+		// Use log.Println here for debugging purposes; remove or adjust for production use
+		log.Println("Error fetching aggregate data: ", err)
+		return types.AggregateData{}, err
+	}
+
+	// Use log.Println here for debugging purposes; remove or adjust for production use
+	log.Println("aggregate", aggregate)
+
+	return aggregate, nil
 }

@@ -34,6 +34,8 @@ func main() {
 	server := NewServer(queryService)
 	http.HandleFunc("/search", server.SearchHandler)
 	http.HandleFunc("/userInfo", server.GetUserInfo)
+	http.HandleFunc("/trend", server.TrendHandler)
+	http.HandleFunc("/aggregate", server.AggregateHandler)
 	// Start the server.
 	log.Println("Starting server on :8080")
 
