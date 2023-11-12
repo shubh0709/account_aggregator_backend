@@ -13,6 +13,7 @@ type DB interface {
 	QueryTransactions(keyword string, accounts []string, startTime, endTime time.Time) ([]Transaction, error)
 	GetUniqueKeywords() ([]string, error)
 	GetUniqueBankAccounts() ([]string, error)
+	QueryTransactionsWithPagination(keyword string, accounts []string, startTime, endTime time.Time, limit, offset int, sortOrder string) ([]Transaction, error)
 	Close() error
 }
 

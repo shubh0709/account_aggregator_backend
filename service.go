@@ -73,6 +73,13 @@ func (s *Service) GetAllBankAccounts() ([]string, error) {
 	return s.db.GetUniqueBankAccounts()
 }
 
+// SearchWithPagination performs a search with pagination.
+func (s *Service) SearchWithPagination(keyword string, accounts []string, startTime, endTime time.Time, limit, offset int, sortOrder string) ([]types.Transaction, error) {
+	// The actual search logic with pagination will be implemented here.
+	// This will involve modifying the SQL query to include LIMIT and OFFSET.
+	return s.db.QueryTransactionsWithPagination(keyword, accounts, startTime, endTime, limit, offset, sortOrder)
+}
+
 // GetAccounts retrieves a list of available accounts from the transactions table.
 func (db *PostgresDB) GetUniqueBankAccounts() ([]string, error) {
 	const query = `SELECT DISTINCT account_id FROM transactions`
@@ -216,6 +223,94 @@ func (db *PostgresDB) QueryTransactions(keyword string, accounts []string, start
 	}
 
 	return transactions, nil
+}
+
+// QueryTransactionsWithPagination retrieves transactions with pagination and sorting.
+func (db *PostgresDB) QueryTransactionsWithPagination(keyword string, accounts []string, startTime, endTime time.Time, limit, offset int, sortOrder string) ([]types.Transaction, error) {
+	var transactions []types.Transaction
+
+	// Default sort order
+	if sortOrder != "asc" && sortOrder != "desc" {
+		sortOrder = "desc"
+	}
+
+	// Start constructing the SQL query
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString("SELECT account_id, date, description, debit, credit, balance FROM transactions WHERE 1=1")
+
+	// Parameters slice for the query parameters
+	var params []interface{}
+	paramID := 1
+
+	// Include keyword filter only if keyword is not empty
+	if keyword != "" {
+		queryBuilder.WriteString(fmt.Sprintf(" AND description ILIKE $%d", paramID))
+		params = append(params, "%"+keyword+"%")
+		paramID++
+	}
+
+	// Add account filtering if accounts are provided
+	if len(accounts) > 0 {
+		queryBuilder.WriteString(fmt.Sprintf(" AND account_id IN (%s)", paramPlaceholder(paramID, len(accounts))))
+		for _, account := range accounts {
+			params = append(params, account)
+			paramID++
+		}
+	}
+
+	// Add date range filtering if start and end times are not zero values
+	if !startTime.IsZero() {
+		queryBuilder.WriteString(fmt.Sprintf(" AND date >= $%d", paramID))
+		params = append(params, startTime)
+		paramID++
+	}
+	if !endTime.IsZero() {
+		queryBuilder.WriteString(fmt.Sprintf(" AND date <= $%d", paramID))
+		params = append(params, endTime)
+		paramID++
+	}
+
+	// Add pagination and sorting using LIMIT and OFFSET
+	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY date %s LIMIT $%d OFFSET $%d", sortOrder, paramID, paramID+1))
+	params = append(params, limit, offset)
+
+	// Execute the query
+	rows, err := db.Query(queryBuilder.String(), params...)
+	if err != nil {
+		return nil, fmt.Errorf("error querying transactions with pagination: %v", err)
+	}
+	defer rows.Close()
+
+	// Iterate over the rows and scan the results into the transactions slice
+	for rows.Next() {
+		var t types.Transaction
+		var date time.Time
+		if err := rows.Scan(&t.AccountID, &date, &t.Description, &t.Debit, &t.Credit, &t.Balance); err != nil {
+			return nil, fmt.Errorf("error scanning transaction row: %v", err)
+		}
+		// Convert the date to DD/MM/YYYY format
+		t.Date = date.Format("02/01/2006")
+		transactions = append(transactions, t)
+	}
+
+	// Check for any error that occurred during the iteration
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("iteration error in QueryTransactionsWithPagination: %v", err)
+	}
+
+	return transactions, nil
+}
+
+// paramPlaceholder generates a string with placeholders for SQL IN clause.
+func paramPlaceholder(start, count int) string {
+	if count < 1 {
+		return ""
+	}
+	placeholders := make([]string, count)
+	for i := range placeholders {
+		placeholders[i] = fmt.Sprintf("$%d", start+i)
+	}
+	return strings.Join(placeholders, ", ")
 }
 
 func (db *PostgresDB) Close() error {
