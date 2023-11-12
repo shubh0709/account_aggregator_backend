@@ -122,10 +122,7 @@ func (s *Server) GetUserInfo(w http.ResponseWriter, r *http.Request) {
 
 // TrendHandler handles the /trends endpoint.
 func (s *Server) TrendHandler(w http.ResponseWriter, r *http.Request) {
-	// Parse request parameters like keyword and date range
-	// ...
 
-	// Parse request parameters
 	keyword := r.URL.Query().Get("keyword")
 	start, end := r.URL.Query().Get("start"), r.URL.Query().Get("end")
 
