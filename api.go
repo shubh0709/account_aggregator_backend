@@ -9,12 +9,10 @@ import (
 	"valyx/aggregator/types"
 )
 
-// Server holds dependencies for a HTTP server.
 type Server struct {
 	QueryService *Service
 }
 
-// NewServer creates a new HTTP server with dependencies.
 func NewServer(queryService *Service) *Server {
 
 	return &Server{
@@ -22,17 +20,14 @@ func NewServer(queryService *Service) *Server {
 	}
 }
 
-// SearchHandler handles the /search endpoint.
 func (s *Server) SearchHandler(w http.ResponseWriter, r *http.Request) {
-	// Parse request parameters
 	keyword := r.URL.Query().Get("keyword")
 	accounts := r.URL.Query()["accounts"]
 	sortOrder := r.URL.Query().Get("sort")
 	start, end := r.URL.Query().Get("start"), r.URL.Query().Get("end")
-	// Parse pagination parameters
 	pageStr := r.URL.Query().Get("page")
 	if pageStr == "" {
-		pageStr = "1" // Default to the first page if not specified
+		pageStr = "1"
 	}
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
@@ -40,7 +35,7 @@ func (s *Server) SearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := 30 // Set the number of records per page
+	limit := 30
 	offset := (page - 1) * limit
 	if start != "" {
 		start = start + "T00:00:00Z"
@@ -48,7 +43,6 @@ func (s *Server) SearchHandler(w http.ResponseWriter, r *http.Request) {
 	if end != "" {
 		end = end + "T00:00:00Z"
 	}
-	// Convert start and end to time.Time
 	startTime, endTime, err := parseTimeRange(start, end)
 	if err != nil {
 		errorMsg := fmt.Sprintf("Invalid date format: %v. Please use YYYY-MM-DD.", err.Error())
@@ -56,21 +50,12 @@ func (s *Server) SearchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// // Perform search
-	// results, err := s.QueryService.Search(keyword, accounts, startTime, endTime)
-	// if err != nil {
-	// 	http.Error(w, "Failed to perform search", http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// Perform search using the parsed parameters and pagination details
 	results, err := s.QueryService.SearchWithPagination(keyword, accounts, startTime, endTime, limit, offset, sortOrder)
 	if err != nil {
 		http.Error(w, "Failed to perform search", http.StatusInternalServerError)
 		return
 	}
 
-	// Respond with results
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(results); err != nil {
 		http.Error(w, "Failed to encode results", http.StatusInternalServerError)
@@ -78,7 +63,6 @@ func (s *Server) SearchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// parseTimeRange parses the start and end query parameters into time.Time.
 func parseTimeRange(start, end string) (startTime, endTime time.Time, err error) {
 	if start != "" {
 		startTime, err = time.Parse(time.RFC3339, start)
@@ -120,7 +104,6 @@ func (s *Server) GetUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TrendHandler handles the /trends endpoint.
 func (s *Server) TrendHandler(w http.ResponseWriter, r *http.Request) {
 
 	keyword := r.URL.Query().Get("keyword")
@@ -132,7 +115,6 @@ func (s *Server) TrendHandler(w http.ResponseWriter, r *http.Request) {
 	if end != "" {
 		end = end + "T00:00:00Z"
 	}
-	// Convert start and end to time.Time
 	startTime, endTime, err := parseTimeRange(start, end)
 	if err != nil {
 		errorMsg := fmt.Sprintf("Invalid date format: %v. Please use YYYY-MM-DD.", err.Error())
@@ -153,11 +135,7 @@ func (s *Server) TrendHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// AggregateHandler handles the /aggregates endpoint.
 func (s *Server) AggregateHandler(w http.ResponseWriter, r *http.Request) {
-	// Parse request parameters like keyword
-	// ...
-	// Parse request parameters
 	keyword := r.URL.Query().Get("keyword")
 	start, end := r.URL.Query().Get("start"), r.URL.Query().Get("end")
 
@@ -167,7 +145,6 @@ func (s *Server) AggregateHandler(w http.ResponseWriter, r *http.Request) {
 	if end != "" {
 		end = end + "T00:00:00Z"
 	}
-	// Convert start and end to time.Time
 	startTime, endTime, err := parseTimeRange(start, end)
 	if err != nil {
 		errorMsg := fmt.Sprintf("Invalid date format: %v. Please use YYYY-MM-DD.", err.Error())

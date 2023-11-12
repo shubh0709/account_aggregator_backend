@@ -19,15 +19,12 @@ type Processor struct {
 	db types.DB
 }
 
-// New creates a new processor with dependencies.
 func NewProcessor(db types.DB) *Processor {
 	return &Processor{db: db}
 }
 
 func (p *Processor) ReadExcelFiles(path string, db types.DB) error {
-	// createTable(db)
 
-	// Process CSV files from the folder
 	return filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -51,9 +48,8 @@ func (p *Processor) processCSVFile(filePath string, db types.DB, accountId strin
 	defer file.Close()
 
 	reader := csv.NewReader(file)
-	reader.Read() // Skip header line
+	reader.Read()
 	for {
-		// Read each record
 		record, err := reader.Read()
 		if err == io.EOF {
 			break
@@ -62,7 +58,6 @@ func (p *Processor) processCSVFile(filePath string, db types.DB, accountId strin
 			return err
 		}
 
-		// Process and update record in the database
 		if err := p.processData(record, accountId); err != nil {
 			return err
 		}
@@ -72,15 +67,12 @@ func (p *Processor) processCSVFile(filePath string, db types.DB, accountId strin
 }
 
 func (p *Processor) processData(record []string, accountId string) error {
-	// Parse the date from the CSV format to Go's time.Time type
 	parsedDate, err := time.Parse("02/01/2006", record[0])
 	if err != nil {
 		panic(err)
 	}
-	// Format the date to PostgreSQL's accepted format
 	formattedDate := parsedDate.Format("2006-01-02")
 
-	// Convert empty strings to SQL null values for numeric fields
 	debit := stringToNullNumeric(record[2])
 	credit := stringToNullNumeric(record[3])
 	balance := stringToNullNumeric(record[4])
