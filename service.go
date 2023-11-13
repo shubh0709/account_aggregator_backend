@@ -22,16 +22,17 @@ type PostgresDB struct {
 }
 
 func setupDB() (types.DB, error) {
-	host := viper.GetString("PGHOST")
-	port := viper.GetString("PGPORT")
-	user := viper.GetString("PGUSER")
-	password := viper.GetString("PGPASSWORD")
-	dbname := viper.GetString("PGDATABASE")
+	pg_host := viper.GetString("PGHOST")
+	pg_port := viper.GetString("PGPORT")
+	pg_user := viper.GetString("PGUSER")
+	pg_password := viper.GetString("PGPASSWORD")
+	pg_dbname := viper.GetString("PGDATABASE")
 
 	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
-		"password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+		"password=%s dbname=%s sslmode=disable", pg_host, pg_port, pg_user, pg_password, pg_dbname)
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
+		log.Fatal("Error connecting to the database: ", err)
 		return nil, err
 	}
 

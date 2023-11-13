@@ -14,6 +14,9 @@ import (
 func init() {
 	viper.SetConfigFile(".env") // Set the path of your .env file
 	viper.ReadInConfig()
+	viper.SetDefault("PORT", "8080")
+	viper.AutomaticEnv()
+
 }
 
 func main() {
