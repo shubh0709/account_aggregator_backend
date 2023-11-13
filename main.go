@@ -7,8 +7,14 @@ import (
 	"valyx/aggregator/utils"
 
 	_ "github.com/lib/pq"
+	"github.com/spf13/viper"
 	"github.com/ztrue/tracerr"
 )
+
+func init() {
+	viper.SetConfigFile(".env") // Set the path of your .env file
+	viper.ReadInConfig()
+}
 
 func main() {
 	db, err := setupDB()
@@ -32,11 +38,14 @@ func main() {
 	http.HandleFunc("/userInfo", server.GetUserInfo)
 	http.HandleFunc("/trend", server.TrendHandler)
 	http.HandleFunc("/aggregate", server.AggregateHandler)
-	log.Println("Starting server on :8080")
+	http.HandleFunc("/env", server.TestEnvironmentHandler)
+
+	serverPort := viper.GetString("PORT")
+	log.Println("Starting server on " + serverPort)
 
 	runServer := &http.Server{
-		Addr: ":8080",
-		Handler: utils.ApplyMiddleware(http.DefaultServeMux, utils.EnableCORS, utils.LoggingMiddleware),
+		Addr:    "0.0.0.0:" + serverPort,
+		Handler: utils.ApplyMiddleware(http.DefaultServeMux, utils.EnableCORS(), utils.LoggingMiddleware),
 	}
 
 	if err := runServer.ListenAndServe(); err != nil {

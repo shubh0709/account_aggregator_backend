@@ -9,6 +9,7 @@ import (
 	"valyx/aggregator/types"
 
 	_ "github.com/lib/pq"
+	"github.com/spf13/viper"
 	"github.com/ztrue/tracerr"
 )
 
@@ -21,15 +22,13 @@ type PostgresDB struct {
 }
 
 func setupDB() (types.DB, error) {
-	const (
-		host     = "localhost"
-		port     = 5432
-		user     = "postgres"
-		password = "12345"
-		dbname   = "bank"
-	)
+	host := viper.GetString("PGHOST")
+	port := viper.GetString("PGPORT")
+	user := viper.GetString("PGUSER")
+	password := viper.GetString("PGPASSWORD")
+	dbname := viper.GetString("PGDATABASE")
 
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
 		"password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
@@ -292,7 +291,6 @@ func (db *PostgresDB) Close() error {
 	return db.DB.Close()
 }
 
-
 func (db *PostgresDB) GetTrendData(category string, startTime, endTime time.Time) ([]types.TrendData, error) {
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString(`
@@ -333,7 +331,7 @@ func (db *PostgresDB) GetTrendData(category string, startTime, endTime time.Time
 		if err := rows.Scan(&period, &trend.TotalCredit, &trend.TotalDebit); err != nil {
 			return nil, err
 		}
-		trend.Period = period.Format("02-01-2006") 
+		trend.Period = period.Format("02-01-2006")
 		trends = append(trends, trend)
 	}
 

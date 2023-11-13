@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 	"valyx/aggregator/types"
+
+	"github.com/spf13/viper"
 )
 
 type Server struct {
@@ -17,6 +19,16 @@ func NewServer(queryService *Service) *Server {
 
 	return &Server{
 		QueryService: queryService,
+	}
+}
+
+func (s *Server) TestEnvironmentHandler(w http.ResponseWriter, r *http.Request) {
+	results := viper.GetString("TEST_ENV")
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		http.Error(w, "Failed to encode results", http.StatusInternalServerError)
+		return
 	}
 }
 
